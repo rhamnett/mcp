@@ -19,6 +19,8 @@ from typing import Any, Dict, Generator, Literal, Optional, Tuple, cast
 
 import yaml
 from fastmcp import FastMCP
+from fastmcp.exceptions import ToolError
+from fastmcp.server.middleware import Middleware, MiddlewareContext
 from fastmcp.tools import Tool
 from snowflake.connector import DictCursor, connect
 
@@ -502,7 +504,26 @@ def create_snowflake_service():
         raise
 
 
+class ToolCallMiddleware(Middleware):
+    """Middleware that checks tool call specifications."""
+
+    async def on_call_tool(self, context: MiddlewareContext, call_next):
+        """Called for all MCP tool calls."""
+        tool_name = context.message.name
+
+        # Deny access to restricted tools
+        if tool_name.lower() in ["delete", "admin_config"]:
+            raise ToolError("To be implemented: Check CRUD permissions")
+        else:
+            pass
+            # TO DO: Check CRUD permissions")
+
+        # Allow other tools to proceed
+        return await call_next(context)
+
+
 server = FastMCP("Snowflake MCP Server")
+server.add_middleware(ToolCallMiddleware())
 
 
 def initialize_resources(snowflake_service):
