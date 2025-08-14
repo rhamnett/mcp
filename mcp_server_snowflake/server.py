@@ -110,6 +110,22 @@ class SnowflakeService:
         self.unpack_service_specs()
         # Persist connection to avoid closing it after each request
         self.connection = self._get_persistent_connection()
+        
+        # Initialize DatabaseManager
+        # After connection is established, initialize the database manager
+        try:
+            logger.debug("Attempting to import DatabaseManager...")
+            from mcp_server_snowflake.object_manager.database_manager import DatabaseManager
+            logger.debug("DatabaseManager imported successfully")
+            
+            self.database_manager = DatabaseManager(self)
+            logger.info("DatabaseManager initialized successfully")
+        except ImportError as e:
+            logger.warning(f"snowflake-core not available, database tools disabled. Import error: {e}")
+            self.database_manager = None
+        except Exception as e:
+            logger.error(f"Failed to initialize DatabaseManager: {e}", exc_info=True)
+            self.database_manager = None
 
     def unpack_service_specs(self) -> None:
         """
@@ -358,6 +374,17 @@ class SnowflakeService:
             return session_parameters
         else:
             return None
+    
+    def get_database_manager(self):
+        """
+        Get the database manager instance.
+        
+        Returns
+        -------
+        DatabaseManager or None
+            The database manager if initialized, None otherwise
+        """
+        return getattr(self, 'database_manager', None)
 
 
 def get_var(var_name: str, env_var_name: str, args) -> Optional[str]:
@@ -471,6 +498,11 @@ def create_lifespan(args):
 
         finally:
             if snowflake_service is not None:
+                # Clean up database manager resources
+                if hasattr(snowflake_service, 'database_manager') and snowflake_service.database_manager:
+                    # Database manager cleanup if needed
+                    # The database manager uses the service's connection, which is cleaned up in cleanup_snowflake_service
+                    pass
                 cleanup_snowflake_service(snowflake_service)
 
     return create_snowflake_service
@@ -492,6 +524,37 @@ def initialize_resources(snowflake_service: SnowflakeService, server: FastMCP):
 
 def initialize_tools(snowflake_service: SnowflakeService, server: FastMCP):
     if snowflake_service is not None:
+        # Register database tools if database manager is available
+        logger.debug("Checking for database manager...")
+        db_manager = snowflake_service.get_database_manager()
+        if db_manager is not None:
+            logger.debug("Database manager found, registering database tools...")
+            try:
+                from mcp_server_snowflake.object_manager.database_tools import (
+                    create_database_tools,
+                    get_database_tool_descriptions
+                )
+                database_tools = create_database_tools(snowflake_service)
+                descriptions = get_database_tool_descriptions()
+                
+                logger.debug(f"Created {len(database_tools)} database tools: {list(database_tools.keys())}")
+                
+                for tool_name, tool_func in database_tools.items():
+                    server.add_tool(
+                        Tool.from_function(
+                            fn=tool_func,
+                            name=tool_name,
+                            description=descriptions.get(tool_name, f"Database tool: {tool_name}")
+                        )
+                    )
+                    logger.debug(f"Registered database tool: {tool_name}")
+                    
+                logger.info(f"Successfully registered {len(database_tools)} database tools: {list(database_tools.keys())}")
+            except Exception as e:
+                logger.error(f"Failed to register database tools: {e}", exc_info=True)
+        else:
+            logger.warning("Database manager not available, skipping database tools registration")
+        
         # Add tools for each configured search service
         if snowflake_service.search_services:
             for service in snowflake_service.search_services:

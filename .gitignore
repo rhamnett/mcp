@@ -176,3 +176,11 @@ cython_debug/
 # fast-agent files
 fastagent.secrets.yaml
 *.jsonl
+
+
+# TGs files
+snowflake-mcp-server/
+GAMEPLAN.md
+.claude/
+**/CLAUDE.md
+tools_config.yaml
