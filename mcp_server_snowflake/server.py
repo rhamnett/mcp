@@ -111,21 +111,105 @@ class SnowflakeService:
         # Persist connection to avoid closing it after each request
         self.connection = self._get_persistent_connection()
         
-        # Initialize DatabaseManager
-        # After connection is established, initialize the database manager
+        # Initialize Core Object Managers
         try:
-            logger.debug("Attempting to import DatabaseManager...")
-            from mcp_server_snowflake.object_manager.database_manager import DatabaseManager
-            logger.debug("DatabaseManager imported successfully")
+            logger.debug("Initializing Core Object Management...")
+            from mcp_server_snowflake.object_manager.managers.core import CoreObjectManager
+            from mcp_server_snowflake.object_manager.registry import (
+                CORE_REGISTRY,
+                get_object_config
+            )
             
-            self.database_manager = DatabaseManager(self)
-            logger.info("DatabaseManager initialized successfully")
+            # Import complex type managers
+            from mcp_server_snowflake.object_manager.managers import (
+                TableManager,
+                ViewManager,
+                FunctionManager,
+                ProcedureManager
+            )
+            
+            # Initialize managers for all registered object types
+            self.object_managers = {}
+            for object_type in CORE_REGISTRY.keys():
+                try:
+                    config = get_object_config(object_type)
+                    
+                    # Check if this is a complex type that needs a custom manager
+                    if config.get('complex_type', False):
+                        # Use specialized manager for complex types
+                        if object_type == 'table':
+                            manager = TableManager(
+                                snowflake_service=self,
+                                object_type=object_type,
+                                object_class=None,  # Not used by custom managers
+                                collection_path=config.get('collection_path')
+                            )
+                        elif object_type == 'view':
+                            manager = ViewManager(
+                                snowflake_service=self,
+                                object_type=object_type,
+                                object_class=None,
+                                collection_path=config.get('collection_path')
+                            )
+                        elif object_type == 'function':
+                            manager = FunctionManager(
+                                snowflake_service=self,
+                                object_type=object_type,
+                                object_class=None,
+                                collection_path=config.get('collection_path')
+                            )
+                        elif object_type == 'procedure':
+                            manager = ProcedureManager(
+                                snowflake_service=self,
+                                object_type=object_type,
+                                object_class=None,
+                                collection_path=config.get('collection_path')
+                            )
+                        else:
+                            logger.warning(f"Unknown complex type: {object_type}")
+                            continue
+                    else:
+                        # Use standard CoreObjectManager for simple types
+                        # Import the class dynamically based on object type
+                        if object_type == 'database':
+                            from snowflake.core.database import Database
+                            obj_class = Database
+                        elif object_type == 'schema':
+                            from snowflake.core.schema import Schema
+                            obj_class = Schema
+                        elif object_type == 'warehouse':
+                            from snowflake.core.warehouse import Warehouse
+                            obj_class = Warehouse
+                        elif object_type == 'role':
+                            from snowflake.core.role import Role
+                            obj_class = Role
+                        elif object_type == 'database_role':
+                            from snowflake.core.database_role import DatabaseRole
+                            obj_class = DatabaseRole
+                        else:
+                            logger.warning(f"Unknown object type: {object_type}")
+                            continue
+                        
+                        manager = CoreObjectManager(
+                            snowflake_service=self,
+                            object_type=object_type,
+                            object_class=obj_class,
+                            collection_path=config.get('collection_path', f"{object_type}s")
+                        )
+                    
+                    self.object_managers[object_type] = manager
+                    logger.debug(f"Initialized manager for {object_type}")
+                except Exception as e:
+                    logger.warning(f"Failed to initialize manager for {object_type}: {e}")
+            
+            logger.info(f"Successfully initialized {len(self.object_managers)} object managers")
+            
         except ImportError as e:
-            logger.warning(f"snowflake-core not available, database tools disabled. Import error: {e}")
-            self.database_manager = None
+            logger.warning(f"snowflake-core not available, object management disabled. Import error: {e}")
+            self.object_managers = {}
         except Exception as e:
-            logger.error(f"Failed to initialize DatabaseManager: {e}", exc_info=True)
-            self.database_manager = None
+            logger.error(f"Failed to initialize object management: {e}", exc_info=True)
+            self.object_managers = {}
 
     def unpack_service_specs(self) -> None:
         """
@@ -375,16 +459,16 @@ class SnowflakeService:
         else:
             return None
     
-    def get_database_manager(self):
+    def get_object_managers(self):
         """
-        Get the database manager instance.
+        Get all object managers.
         
         Returns
         -------
-        DatabaseManager or None
-            The database manager if initialized, None otherwise
+        dict
+            Dictionary of object type to manager mappings
         """
-        return getattr(self, 'database_manager', None)
+        return getattr(self, 'object_managers', {})
 
 
 def get_var(var_name: str, env_var_name: str, args) -> Optional[str]:
@@ -524,36 +608,52 @@ def initialize_resources(snowflake_service: SnowflakeService, server: FastMCP):
 
 def initialize_tools(snowflake_service: SnowflakeService, server: FastMCP):
     if snowflake_service is not None:
-        # Register database tools if database manager is available
-        logger.debug("Checking for database manager...")
-        db_manager = snowflake_service.get_database_manager()
-        if db_manager is not None:
-            logger.debug("Database manager found, registering database tools...")
+        # Register the 3 dynamic tools for all object managers
+        logger.debug("Checking for object managers...")
+        object_managers = snowflake_service.get_object_managers()
+        
+        if object_managers:
+            logger.debug(f"Found {len(object_managers)} object managers, registering dynamic tools...")
             try:
-                from mcp_server_snowflake.object_manager.database_tools import (
-                    create_database_tools,
-                    get_database_tool_descriptions
-                )
-                database_tools = create_database_tools(snowflake_service)
-                descriptions = get_database_tool_descriptions()
+                from mcp_server_snowflake.object_manager.dynamic import create_dynamic_tools
                 
-                logger.debug(f"Created {len(database_tools)} database tools: {list(database_tools.keys())}")
+                # Create the 3 dynamic tools with the manager registry
+                dynamic_tools = create_dynamic_tools(object_managers)
                 
-                for tool_name, tool_func in database_tools.items():
+                # Register each dynamic tool
+                tool_descriptions = {
+                    'create_object': (
+                        "Create any type of Snowflake object. "
+                        f"Supported types: {', '.join(object_managers.keys())}. "
+                        "Specify the object_type parameter to choose what to create."
+                    ),
+                    'list_objects': (
+                        "List any type of Snowflake objects with optional filtering. "
+                        f"Supported types: {', '.join(object_managers.keys())}. "
+                        "Specify the object_type parameter to choose what to list."
+                    ),
+                    'drop_object': (
+                        "Drop any type of Snowflake object. "
+                        f"Supported types: {', '.join(object_managers.keys())}. "
+                        "Specify the object_type parameter to choose what to drop."
+                    )
+                }
+                
+                for tool_name, tool_func in dynamic_tools.items():
                     server.add_tool(
                         Tool.from_function(
                             fn=tool_func,
                             name=tool_name,
-                            description=descriptions.get(tool_name, f"Database tool: {tool_name}")
+                            description=tool_descriptions[tool_name]
                         )
                     )
-                    logger.debug(f"Registered database tool: {tool_name}")
-                    
-                logger.info(f"Successfully registered {len(database_tools)} database tools: {list(database_tools.keys())}")
+                    logger.debug(f"Registered dynamic tool: {tool_name}")
+                
+                logger.info(f"Successfully registered 3 dynamic tools for {len(object_managers)} object types")
             except Exception as e:
-                logger.error(f"Failed to register database tools: {e}", exc_info=True)
+                logger.error(f"Failed to register dynamic tools: {e}", exc_info=True)
         else:
-            logger.warning("Database manager not available, skipping database tools registration")
+            logger.warning("No object managers available, skipping tools registration")
         
         # Add tools for each configured search service
         if snowflake_service.search_services:

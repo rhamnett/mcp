@@ -184,3 +184,6 @@ GAMEPLAN.md
 .claude/
 **/CLAUDE.md
 tools_config.yaml
+snowflake_core-1.6.0/
+run_mcp_server.sh
+dev-inspector.sh
