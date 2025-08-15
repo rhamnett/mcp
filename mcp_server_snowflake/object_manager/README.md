@@ -2,6 +2,8 @@
 
 A unified system for managing all Snowflake objects through just 3 universal tools: `create_object`, `list_objects`, and `drop_object`.
 
+---
+
 ## How It Works
 
 Instead of having separate tools for each object type (create_database, create_schema, create_warehouse...), this module provides **3 dynamic tools** that work with ALL Snowflake objects:
@@ -41,6 +43,8 @@ Instead of having separate tools for each object type (create_database, create_s
 └─────────────────┘
 ```
 
+---
+
 ## Supported Objects
 
 - **databases** - Data storage containers
@@ -53,11 +57,15 @@ Instead of having separate tools for each object type (create_database, create_s
 - **functions** - Reusable code blocks
 - **procedures** - Stored procedures
 
+---
+
 ## How the Three Tools Work
 
 Think of these tools like a universal remote control for your Snowflake database. Instead of having dozens of buttons (one for each object type), you have just 3 buttons that adapt based on what you're controlling.
 
-### 🔨 **create_object** - The Universal Builder
+<br>
+
+### **create_object** - The Universal Builder
 
 **What it does:** Creates ANY type of Snowflake object by understanding what that object needs.
 
@@ -77,7 +85,9 @@ Think of these tools like a universal remote control for your Snowflake database
 | **Role** | Name | Comment, granted privileges |
 | **Schema** | Name, database | Comment, data retention |
 
-### 📋 **list_objects** - The Universal Finder
+<br>
+
+### **list_objects** - The Universal Finder
 
 **What it does:** Finds and lists ANY type of Snowflake object with smart filtering.
 
@@ -90,7 +100,9 @@ Think of these tools like a universal remote control for your Snowflake database
 
 **Think of it like:** A smart search engine that knows the structure of your Snowflake account.
 
-### 🗑️ **drop_object** - The Universal Remover
+<br>
+
+### **drop_object** - The Universal Remover
 
 **What it does:** Safely removes ANY type of Snowflake object with built-in protections.
 
@@ -102,20 +114,26 @@ Think of these tools like a universal remote control for your Snowflake database
 
 **Like recycling:** You specify what to remove, whether to empty it first (CASCADE), and whether it's okay if it's already gone (IF EXISTS).
 
+---
+
 ## Adding New Object Types
 
 Think of adding a new object type like teaching the system about a new kind of building block in your Snowflake world.
 
 ### The Three-Step Process
 
-#### Step 1: Define the Blueprint 📐
+<br>
+
+#### Step 1: Define the Blueprint
 Tell the system what your new object type looks like:
 - **What to call it** (e.g., "stream", "task", "pipe")
 - **Where it lives** (standalone or inside a database/schema)
 - **What information it needs** (required and optional parameters)
 - **What rules apply** (size limits, naming conventions, dependencies)
 
-#### Step 2: Choose the Handler 🎯
+<br>
+
+#### Step 2: Choose the Handler
 
 **Simple Objects** (like databases, roles):
 - Use the standard handler
@@ -128,11 +146,15 @@ Tell the system what your new object type looks like:
 - Require extra validation or transformation
 - Examples: tables, views, functions, procedures
 
-#### Step 3: Connect to the System 🔌
+<br>
+
+#### Step 3: Connect to the System
 Register your new object type so the three universal tools know about it:
 - The tools automatically adapt to handle your new object
 - No changes needed to the tools themselves
 - Users can immediately start using create_object, list_objects, and drop_object with your new type
+
+<br>
 
 ### Real-World Analogy
 
@@ -142,6 +164,8 @@ It's like adding a new appliance to a smart home system:
 3. **Register** it with the home automation system
 
 Once registered, you can control it with the same universal remote (our 3 tools) that controls everything else!
+
+---
 
 ## Directory Structure
 
@@ -162,6 +186,8 @@ object_manager/
     └── procedure.py   # Procedure-specific logic
 ```
 
+---
+
 ## Key Benefits
 
 - **Simplicity**: Just 3 tools to learn instead of dozens
@@ -169,6 +195,8 @@ object_manager/
 - **Extensibility**: Easy to add new object types
 - **Type Safety**: Parameter validation per object type
 - **Error Handling**: Unified error messages with HTTP codes
+
+---
 
 ## How It All Fits Together
 
