@@ -23,10 +23,15 @@ from fastmcp import FastMCP
 from fastmcp.tools import Tool
 from snowflake.connector import DictCursor, connect
 
-import mcp_server_snowflake.tools as tools
+import mcp_server_snowflake.cortex_services.tools as tools
 from mcp_server_snowflake.environment import (
     get_spcs_container_token,
     is_running_in_spcs_container,
+)
+from mcp_server_snowflake.object_manager.prompts import (
+    get_create_object_prompt,
+    get_drop_object_prompt,
+    get_list_objects_prompt,
 )
 from mcp_server_snowflake.object_manager.registry import CORE_REGISTRY
 from mcp_server_snowflake.object_manager.tools.create import create_object_wrapper
@@ -526,33 +531,21 @@ def initialize_tools(snowflake_service: SnowflakeService, server: FastMCP):
             Tool.from_function(
                 fn=create_wrapper,
                 name="create_object",
-                description=(
-                    "Create any type of Snowflake object. "
-                    f"Supported types: {', '.join(object_types)}. "
-                    "Specify the object_type parameter to choose what to create."
-                ),
+                description=get_create_object_prompt(object_types),
             )
         )
         server.add_tool(
             Tool.from_function(
                 fn=list_wrapper,
                 name="list_objects",
-                description=(
-                    "List any type of Snowflake objects with optional filtering. "
-                    f"Supported types: {', '.join(object_types)}. "
-                    "Specify the object_type parameter to choose what to list."
-                ),
+                description=get_list_objects_prompt(object_types),
             )
         )
         server.add_tool(
             Tool.from_function(
                 fn=drop_wrapper,
                 name="drop_object",
-                description=(
-                    "Drop any type of Snowflake object. "
-                    f"Supported types: {', '.join(object_types)}. "
-                    "Specify the object_type parameter to choose what to drop."
-                ),
+                description=get_drop_object_prompt(object_types),
             )
         )
 
