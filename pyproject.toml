@@ -35,3 +35,6 @@ build-backend = "hatchling.build"
 
 [project.scripts]
 mcp-server-snowflake = "mcp_server_snowflake:main"
+
+[tool.codespell]
+ignore-words-list = "inout"

@@ -48,7 +48,7 @@ Instead of having separate tools for each object type (create_database, create_s
 ## Supported Objects
 
 - **databases** - Data storage containers
-- **schemas** - Logical groupings within databases  
+- **schemas** - Logical groupings within databases
 - **warehouses** - Compute resources
 - **roles** - Access control
 - **database_roles** - Database-specific roles

@@ -28,6 +28,10 @@ from mcp_server_snowflake.environment import (
     get_spcs_container_token,
     is_running_in_spcs_container,
 )
+from mcp_server_snowflake.object_manager.registry import CORE_REGISTRY
+from mcp_server_snowflake.object_manager.tools.create import create_object_wrapper
+from mcp_server_snowflake.object_manager.tools.drop import drop_object_wrapper
+from mcp_server_snowflake.object_manager.tools.list import list_objects_wrapper
 from mcp_server_snowflake.utils import (
     cleanup_snowflake_service,
     get_login_params,
@@ -110,106 +114,6 @@ class SnowflakeService:
         self.unpack_service_specs()
         # Persist connection to avoid closing it after each request
         self.connection = self._get_persistent_connection()
-        
-        # Initialize Core Object Managers
-        try:
-            logger.debug("Initializing Core Object Management...")
-            from mcp_server_snowflake.object_manager.managers.core import CoreObjectManager
-            from mcp_server_snowflake.object_manager.registry import (
-                CORE_REGISTRY,
-                get_object_config
-            )
-            
-            # Import complex type managers
-            from mcp_server_snowflake.object_manager.managers import (
-                TableManager,
-                ViewManager,
-                FunctionManager,
-                ProcedureManager
-            )
-            
-            # Initialize managers for all registered object types
-            self.object_managers = {}
-            for object_type in CORE_REGISTRY.keys():
-                try:
-                    config = get_object_config(object_type)
-                    
-                    # Check if this is a complex type that needs a custom manager
-                    if config.get('complex_type', False):
-                        # Use specialized manager for complex types
-                        if object_type == 'table':
-                            manager = TableManager(
-                                snowflake_service=self,
-                                object_type=object_type,
-                                object_class=None,  # Not used by custom managers
-                                collection_path=config.get('collection_path')
-                            )
-                        elif object_type == 'view':
-                            manager = ViewManager(
-                                snowflake_service=self,
-                                object_type=object_type,
-                                object_class=None,
-                                collection_path=config.get('collection_path')
-                            )
-                        elif object_type == 'function':
-                            manager = FunctionManager(
-                                snowflake_service=self,
-                                object_type=object_type,
-                                object_class=None,
-                                collection_path=config.get('collection_path')
-                            )
-                        elif object_type == 'procedure':
-                            manager = ProcedureManager(
-                                snowflake_service=self,
-                                object_type=object_type,
-                                object_class=None,
-                                collection_path=config.get('collection_path')
-                            )
-                        else:
-                            logger.warning(f"Unknown complex type: {object_type}")
-                            continue
-                    else:
-                        # Use standard CoreObjectManager for simple types
-                        # Import the class dynamically based on object type
-                        if object_type == 'database':
-                            from snowflake.core.database import Database
-                            obj_class = Database
-                        elif object_type == 'schema':
-                            from snowflake.core.schema import Schema
-                            obj_class = Schema
-                        elif object_type == 'warehouse':
-                            from snowflake.core.warehouse import Warehouse
-                            obj_class = Warehouse
-                        elif object_type == 'role':
-                            from snowflake.core.role import Role
-                            obj_class = Role
-                        elif object_type == 'database_role':
-                            from snowflake.core.database_role import DatabaseRole
-                            obj_class = DatabaseRole
-                        else:
-                            logger.warning(f"Unknown object type: {object_type}")
-                            continue
-                        
-                        manager = CoreObjectManager(
-                            snowflake_service=self,
-                            object_type=object_type,
-                            object_class=obj_class,
-                            collection_path=config.get('collection_path', f"{object_type}s")
-                        )
-                    
-                    self.object_managers[object_type] = manager
-                    logger.debug(f"Initialized manager for {object_type}")
-                except Exception as e:
-                    logger.warning(f"Failed to initialize manager for {object_type}: {e}")
-            
-            logger.info(f"Successfully initialized {len(self.object_managers)} object managers")
-            
-        except ImportError as e:
-            logger.warning(f"snowflake-core not available, object management disabled. Import error: {e}")
-            self.object_managers = {}
-        except Exception as e:
-            logger.error(f"Failed to initialize object management: {e}", exc_info=True)
-            self.object_managers = {}
 
     def unpack_service_specs(self) -> None:
         """
@@ -458,17 +362,17 @@ class SnowflakeService:
             return session_parameters
         else:
             return None
-    
+
     def get_object_managers(self):
         """
         Get all object managers.
-        
+
         Returns
         -------
         dict
             Dictionary of object type to manager mappings
         """
-        return getattr(self, 'object_managers', {})
+        return getattr(self, "object_managers", {})
 
 
 def get_var(var_name: str, env_var_name: str, args) -> Optional[str]:
@@ -583,7 +487,10 @@ def create_lifespan(args):
         finally:
             if snowflake_service is not None:
                 # Clean up database manager resources
-                if hasattr(snowflake_service, 'database_manager') and snowflake_service.database_manager:
+                if (
+                    hasattr(snowflake_service, "database_manager")
+                    and snowflake_service.database_manager
+                ):
                     # Database manager cleanup if needed
                     # The database manager uses the service's connection, which is cleaned up in cleanup_snowflake_service
                     pass
@@ -608,53 +515,47 @@ def initialize_resources(snowflake_service: SnowflakeService, server: FastMCP):
 
 def initialize_tools(snowflake_service: SnowflakeService, server: FastMCP):
     if snowflake_service is not None:
-        # Register the 3 dynamic tools for all object managers
-        logger.debug("Checking for object managers...")
-        object_managers = snowflake_service.get_object_managers()
-        
-        if object_managers:
-            logger.debug(f"Found {len(object_managers)} object managers, registering dynamic tools...")
-            try:
-                from mcp_server_snowflake.object_manager.dynamic import create_dynamic_tools
-                
-                # Create the 3 dynamic tools with the manager registry
-                dynamic_tools = create_dynamic_tools(object_managers)
-                
-                # Register each dynamic tool
-                tool_descriptions = {
-                    'create_object': (
-                        "Create any type of Snowflake object. "
-                        f"Supported types: {', '.join(object_managers.keys())}. "
-                        "Specify the object_type parameter to choose what to create."
-                    ),
-                    'list_objects': (
-                        "List any type of Snowflake objects with optional filtering. "
-                        f"Supported types: {', '.join(object_managers.keys())}. "
-                        "Specify the object_type parameter to choose what to list."
-                    ),
-                    'drop_object': (
-                        "Drop any type of Snowflake object. "
-                        f"Supported types: {', '.join(object_managers.keys())}. "
-                        "Specify the object_type parameter to choose what to drop."
-                    )
-                }
-                
-                for tool_name, tool_func in dynamic_tools.items():
-                    server.add_tool(
-                        Tool.from_function(
-                            fn=tool_func,
-                            name=tool_name,
-                            description=tool_descriptions[tool_name]
-                        )
-                    )
-                    logger.debug(f"Registered dynamic tool: {tool_name}")
-                
-                logger.info(f"Successfully registered 3 dynamic tools for {len(object_managers)} object types")
-            except Exception as e:
-                logger.error(f"Failed to register dynamic tools: {e}", exc_info=True)
-        else:
-            logger.warning("No object managers available, skipping tools registration")
-        
+        object_types = CORE_REGISTRY.keys()
+
+        # Create wrapper functions that pre-bind snowflake_service
+        create_wrapper = create_object_wrapper(snowflake_service)
+        list_wrapper = list_objects_wrapper(snowflake_service)
+        drop_wrapper = drop_object_wrapper(snowflake_service)
+
+        server.add_tool(
+            Tool.from_function(
+                fn=create_wrapper,
+                name="create_object",
+                description=(
+                    "Create any type of Snowflake object. "
+                    f"Supported types: {', '.join(object_types)}. "
+                    "Specify the object_type parameter to choose what to create."
+                ),
+            )
+        )
+        server.add_tool(
+            Tool.from_function(
+                fn=list_wrapper,
+                name="list_objects",
+                description=(
+                    "List any type of Snowflake objects with optional filtering. "
+                    f"Supported types: {', '.join(object_types)}. "
+                    "Specify the object_type parameter to choose what to list."
+                ),
+            )
+        )
+        server.add_tool(
+            Tool.from_function(
+                fn=drop_wrapper,
+                name="drop_object",
+                description=(
+                    "Drop any type of Snowflake object. "
+                    f"Supported types: {', '.join(object_types)}. "
+                    "Specify the object_type parameter to choose what to drop."
+                ),
+            )
+        )
+
         # Add tools for each configured search service
         if snowflake_service.search_services:
             for service in snowflake_service.search_services:

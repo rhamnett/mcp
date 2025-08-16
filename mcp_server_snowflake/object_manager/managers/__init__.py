@@ -1,15 +1,6 @@
-"""Snowflake object managers."""
+"""
+Object managers for Snowflake MCP server.
 
-from .core import CoreObjectManager
-from .table import TableManager
-from .view import ViewManager
-from .function import FunctionManager
-from .procedure import ProcedureManager
-
-__all__ = [
-    'CoreObjectManager',
-    'TableManager',
-    'ViewManager',
-    'FunctionManager',
-    'ProcedureManager'
-]
+This package provides specialized manager classes for different types
+of Snowflake objects including tables, views, functions, and procedures.
+"""
