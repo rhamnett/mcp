@@ -72,7 +72,6 @@ class CoreObjectManager:
             raise SnowflakeException(
                 tool=self.object_type,
                 message=f"No active Snowflake connection for {self.object_type} operations",
-                status_code=500,
             )
 
         return Root(self.service.connection)
@@ -110,7 +109,6 @@ class CoreObjectManager:
                         raise SnowflakeException(
                             tool=self.object_type,
                             message=f"Missing required parent parameter: {param_name}",
-                            status_code=400,
                         )
 
                     # Navigate to parent collection and get specific item
@@ -217,17 +215,11 @@ class CoreObjectManager:
             logger.error(error_msg)
 
             if "already exists" in str(e).lower():
-                raise SnowflakeException(
-                    tool=self.object_type, message=error_msg, status_code=409
-                )
+                raise SnowflakeException(tool=self.object_type, message=error_msg)
             elif "insufficient privileges" in str(e).lower():
-                raise SnowflakeException(
-                    tool=self.object_type, message=error_msg, status_code=403
-                )
+                raise SnowflakeException(tool=self.object_type, message=error_msg)
             else:
-                raise SnowflakeException(
-                    tool=self.object_type, message=error_msg, status_code=500
-                )
+                raise SnowflakeException(tool=self.object_type, message=error_msg)
 
     async def list(
         self,
@@ -261,7 +253,6 @@ class CoreObjectManager:
                 raise SnowflakeException(
                     tool=self.object_type,
                     message="Cannot use both 'like' and 'starts_with' parameters",
-                    status_code=400,
                 )
 
             # Validate limit
@@ -269,7 +260,6 @@ class CoreObjectManager:
                 raise SnowflakeException(
                     tool=self.object_type,
                     message="Limit must be between 1 and 10000",
-                    status_code=400,
                 )
 
             # Get the collection
@@ -321,13 +311,9 @@ class CoreObjectManager:
             logger.error(error_msg)
 
             if "insufficient privileges" in str(e).lower():
-                raise SnowflakeException(
-                    tool=self.object_type, message=error_msg, status_code=403
-                )
+                raise SnowflakeException(tool=self.object_type, message=error_msg)
             else:
-                raise SnowflakeException(
-                    tool=self.object_type, message=error_msg, status_code=500
-                )
+                raise SnowflakeException(tool=self.object_type, message=error_msg)
 
     async def drop(
         self,
@@ -367,7 +353,6 @@ class CoreObjectManager:
                     raise SnowflakeException(
                         tool=self.object_type,
                         message=f"Cannot drop system database: {name}",
-                        status_code=403,
                     )
 
             # Get the collection
@@ -407,7 +392,6 @@ class CoreObjectManager:
                     raise SnowflakeException(
                         tool=self.object_type,
                         message=f"{self.object_type.capitalize()} '{name}' not found",
-                        status_code=404,
                     )
 
         except SnowflakeException:
@@ -418,14 +402,8 @@ class CoreObjectManager:
             logger.error(error_msg)
 
             if "insufficient privileges" in str(e).lower():
-                raise SnowflakeException(
-                    tool=self.object_type, message=error_msg, status_code=403
-                )
+                raise SnowflakeException(tool=self.object_type, message=error_msg)
             elif "cannot be dropped" in str(e).lower():
-                raise SnowflakeException(
-                    tool=self.object_type, message=error_msg, status_code=409
-                )
+                raise SnowflakeException(tool=self.object_type, message=error_msg)
             else:
-                raise SnowflakeException(
-                    tool=self.object_type, message=error_msg, status_code=500
-                )
+                raise SnowflakeException(tool=self.object_type, message=error_msg)
