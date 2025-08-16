@@ -105,7 +105,6 @@ async def create_object(
                 tool="create_object",
                 message=f"Unknown object type: {object_type}. "
                 f"Available types: {', '.join(CORE_REGISTRY.keys())}",
-                status_code=400,
             )
 
         # Create manager directly from registry
@@ -131,7 +130,6 @@ async def create_object(
                     raise SnowflakeException(
                         tool="create_object",
                         message=f"'{param}' is required for creating {object_type}",
-                        status_code=400,
                     )
                 parent_params[param] = value
 
@@ -152,7 +150,6 @@ async def create_object(
                 raise SnowflakeException(
                     tool="create_object",
                     message="'columns' must be a valid JSON array",
-                    status_code=400,
                 )
 
         parsed_arguments = arguments
@@ -163,7 +160,6 @@ async def create_object(
                 raise SnowflakeException(
                     tool="create_object",
                     message="'arguments' must be a valid JSON array",
-                    status_code=400,
                 )
 
         parsed_clustering_keys = clustering_keys
@@ -174,7 +170,6 @@ async def create_object(
                 raise SnowflakeException(
                     tool="create_object",
                     message="'clustering_keys' must be a valid JSON array",
-                    status_code=400,
                 )
 
         # Map each allowed parameter to its value
@@ -218,7 +213,6 @@ async def create_object(
                     raise SnowflakeException(
                         tool="create_object",
                         message=f"Transient {object_type}s can have maximum {max_retention} day retention",
-                        status_code=400,
                     )
             elif not transient and data_retention_time_in_days is not None:
                 max_retention = validation.get("max_permanent_retention_days", 90)
@@ -226,7 +220,6 @@ async def create_object(
                     raise SnowflakeException(
                         tool="create_object",
                         message=f"Permanent {object_type}s can have maximum {max_retention} days retention",
-                        status_code=400,
                     )
 
         elif object_type == "warehouse":
@@ -237,7 +230,6 @@ async def create_object(
                     raise SnowflakeException(
                         tool="create_object",
                         message=f"Invalid warehouse size. Must be one of: {', '.join(valid_sizes)}",
-                        status_code=400,
                     )
                 create_params["warehouse_size"] = warehouse_size.upper()
 
@@ -247,7 +239,6 @@ async def create_object(
                     raise SnowflakeException(
                         tool="create_object",
                         message=f"Invalid warehouse type. Must be one of: {', '.join(valid_types)}",
-                        status_code=400,
                     )
                 create_params["warehouse_type"] = warehouse_type.upper()
 
@@ -258,7 +249,6 @@ async def create_object(
                     raise SnowflakeException(
                         tool="create_object",
                         message=f"auto_suspend must be between {min_suspend} and {max_suspend} seconds",
-                        status_code=400,
                     )
 
             if scaling_policy:
@@ -267,7 +257,6 @@ async def create_object(
                     raise SnowflakeException(
                         tool="create_object",
                         message=f"Invalid scaling policy. Must be one of: {', '.join(valid_policies)}",
-                        status_code=400,
                     )
                 create_params["scaling_policy"] = scaling_policy.upper()
 
@@ -293,9 +282,7 @@ async def create_object(
     except Exception as e:
         error_msg = f"Failed to create {object_type}: {str(e)}"
         logger.error(error_msg)
-        raise SnowflakeException(
-            tool="create_object", message=error_msg, status_code=500
-        )
+        raise SnowflakeException(tool="create_object", message=error_msg)
 
 
 def create_object_wrapper(snowflake_service: Any):

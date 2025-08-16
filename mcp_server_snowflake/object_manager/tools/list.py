@@ -57,7 +57,6 @@ async def list_objects(
                 tool="list_objects",
                 message=f"Unknown object type: {object_type}. "
                 f"Available types: {', '.join(CORE_REGISTRY.keys())}",
-                status_code=400,
             )
 
         # Create manager for this object type
@@ -69,7 +68,6 @@ async def list_objects(
             raise SnowflakeException(
                 tool="list_objects",
                 message="Cannot use both 'like' and 'starts_with' parameters",
-                status_code=400,
             )
 
         # Validate limit
@@ -77,7 +75,6 @@ async def list_objects(
             raise SnowflakeException(
                 tool="list_objects",
                 message="Limit must be between 1 and 10000",
-                status_code=400,
             )
 
         # Get configuration for this object type
@@ -100,7 +97,6 @@ async def list_objects(
                     raise SnowflakeException(
                         tool="list_objects",
                         message=f"'{param}' is required for listing {object_type}s",
-                        status_code=400,
                     )
                 parent_params[param] = value
 
@@ -128,9 +124,7 @@ async def list_objects(
     except Exception as e:
         error_msg = f"Failed to list {object_type}s: {str(e)}"
         logger.error(error_msg)
-        raise SnowflakeException(
-            tool="list_objects", message=error_msg, status_code=500
-        )
+        raise SnowflakeException(tool="list_objects", message=error_msg)
 
 
 def list_objects_wrapper(snowflake_service: Any):

@@ -58,7 +58,6 @@ async def drop_object(
                 tool="drop_object",
                 message=f"Unknown object type: {object_type}. "
                 f"Available types: {', '.join(CORE_REGISTRY.keys())}",
-                status_code=400,
             )
 
         # Create manager for this object type
@@ -69,7 +68,6 @@ async def drop_object(
             raise SnowflakeException(
                 tool="drop_object",
                 message=f"'name' is required for dropping {object_type}",
-                status_code=400,
             )
 
         # Get configuration for this object type
@@ -99,7 +97,6 @@ async def drop_object(
             raise SnowflakeException(
                 tool="drop_object",
                 message=f"Cannot drop protected {object_type}: {name}",
-                status_code=403,
             )
 
         logger.info(
@@ -121,7 +118,7 @@ async def drop_object(
     except Exception as e:
         error_msg = f"Failed to drop {object_type}: {str(e)}"
         logger.error(error_msg)
-        raise SnowflakeException(tool="drop_object", message=error_msg, status_code=500)
+        raise SnowflakeException(tool="drop_object", message=error_msg)
 
 
 def drop_object_wrapper(snowflake_service: Any):
