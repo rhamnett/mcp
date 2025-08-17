@@ -407,3 +407,52 @@ class CoreObjectManager:
                 raise SnowflakeException(tool=self.object_type, message=error_msg)
             else:
                 raise SnowflakeException(tool=self.object_type, message=error_msg)
+
+    async def describe(
+        self,
+        name: str,
+        parent_params: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Describe an object.
+
+        Args:
+            name: The name of the object to drop
+            parent_params: Parameters for parent-based objects
+
+        Returns:
+            A dictionary with object details
+
+        Raises:
+            SnowflakeException: If drop operation fails
+        """
+        try:
+            logger.info(f"Describing {self.object_type}: {name}.")
+
+            # Get the collection
+            collection = self._get_collection(parent_params)
+
+            try:
+                # Get the object reference
+                obj_ref = collection[name]
+
+                # Describe the object
+                return obj_ref.fetch().to_dict()
+
+            except NotFoundError:
+                raise SnowflakeException(
+                    tool=self.object_type,
+                    message=f"{self.object_type.capitalize()} '{name}' not found",
+                )
+
+        except SnowflakeException:
+            # Re-raise SnowflakeExceptions as-is
+            raise
+        except Exception as e:
+            error_msg = f"Failed to describe {self.object_type} '{name}': {str(e)}"
+            logger.error(error_msg)
+
+            if "insufficient privileges" in str(e).lower():
+                raise SnowflakeException(tool=self.object_type, message=error_msg)
+            else:
+                raise SnowflakeException(tool=self.object_type, message=error_msg)

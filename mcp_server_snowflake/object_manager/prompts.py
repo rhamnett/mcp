@@ -14,3 +14,9 @@ def get_drop_object_prompt(object_types):
     return f"""Drop any type of Snowflake object.
 Supported types: {", ".join(object_types)}.
 Specify the object_type parameter to choose what to drop."""
+
+
+def get_describe_object_prompt(object_types):
+    return f"""Describe any type of Snowflake object.
+Supported types: {", ".join(object_types)}.
+Specify the object_type parameter to choose what to describe."""

@@ -30,11 +30,13 @@ from mcp_server_snowflake.environment import (
 )
 from mcp_server_snowflake.object_manager.prompts import (
     get_create_object_prompt,
+    get_describe_object_prompt,
     get_drop_object_prompt,
     get_list_objects_prompt,
 )
 from mcp_server_snowflake.object_manager.registry import CORE_REGISTRY
 from mcp_server_snowflake.object_manager.tools.create import create_object_wrapper
+from mcp_server_snowflake.object_manager.tools.describe import describe_object_wrapper
 from mcp_server_snowflake.object_manager.tools.drop import drop_object_wrapper
 from mcp_server_snowflake.object_manager.tools.list import list_objects_wrapper
 from mcp_server_snowflake.utils import (
@@ -526,7 +528,7 @@ def initialize_tools(snowflake_service: SnowflakeService, server: FastMCP):
         create_wrapper = create_object_wrapper(snowflake_service)
         list_wrapper = list_objects_wrapper(snowflake_service)
         drop_wrapper = drop_object_wrapper(snowflake_service)
-
+        describe_wrapper = describe_object_wrapper(snowflake_service)
         server.add_tool(
             Tool.from_function(
                 fn=create_wrapper,
@@ -548,7 +550,13 @@ def initialize_tools(snowflake_service: SnowflakeService, server: FastMCP):
                 description=get_drop_object_prompt(object_types),
             )
         )
-
+        server.add_tool(
+            Tool.from_function(
+                fn=describe_wrapper,
+                name="describe_object",
+                description=get_describe_object_prompt(object_types),
+            )
+        )
         # Add tools for each configured search service
         if snowflake_service.search_services:
             for service in snowflake_service.search_services:
