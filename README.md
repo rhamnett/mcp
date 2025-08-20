@@ -133,7 +133,7 @@ Add the MCP server as context in the chat.
 
 <img src="https://sfquickstarts.s3.us-west-1.amazonaws.com/misc/mcp/Cursor.gif" width="800"/>
 
-For troubleshooting Cursor server issues, view the logs by opening the Output panel and selecting Cursor MCP from the dropdown menu.
+For troubleshooting Cursor server issues, view the logs by opening the Output panel and selecting `MCP: user-mcp-server-snowflake` from the dropdown menu.
 
 ## [fast-agent](https://fast-agent.ai/)
 
@@ -162,6 +162,12 @@ For prerequisites, environment setup, step-by-step guide and instructions, pleas
 The [MCP Inspector](https://modelcontextprotocol.io/docs/tools/inspector) is suggested for troubleshooting the MCP server. Run the below to launch the inspector.
 
 `npx @modelcontextprotocol/inspector uvx --from "git+https://github.com/Snowflake-Labs/mcp" mcp-server-snowflake --service-config-file "<path_to_file>/tools_config.yaml" --connection-name "default"`
+
+## Running without MCP Client
+
+Some MCP clients handle MCP server errors very gracefully. Unfortunately, that can sometimes hide the obvious issues. If your MCP client is having trouble connecting to the MCP server, it can be helpful to run the standalone server. Run the below from a terminal to do so.
+
+`uvx --from "git+https://github.com/Snowflake-Labs/mcp" mcp-server-snowflake --service-config-file "<path_to_file>/tools_config.yaml" --connection-name "default"`
 
 # FAQs
 
