@@ -13,6 +13,7 @@ import argparse
 import json
 import logging
 import os
+import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, contextmanager
 from pathlib import Path
@@ -41,7 +42,10 @@ tag_major_version = 0
 tag_minor_version = 4
 query_tag = {"origin": "sf_sit", "name": "mcp_server"}
 
+
 logger = logging.getLogger(server_name)
+logger.setLevel(logging.INFO)
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 
 class SnowflakeService:
@@ -533,8 +537,6 @@ def main():
     server = FastMCP("Snowflake MCP Server", lifespan=create_lifespan(args))
 
     try:
-        logger.info("Starting Snowflake MCP Server...")
-
         if args.transport and args.transport in [
             "sse",
             "streamable-http",
@@ -542,6 +544,12 @@ def main():
             logger.info(f"Starting server with transport: {args.transport}")
             server.run(transport=args.transport, host="0.0.0.0", port=9000)
         else:
+            # Cursor doesn't support stdout logging, so we need to use stderr
+            stderr_handler = logging.StreamHandler(sys.stderr)
+            stderr_handler.setLevel(logging.INFO)
+            stderr_handler.setFormatter(formatter)
+            logger.addHandler(stderr_handler)
+
             logger.info(f"Starting server with transport: {args.transport or 'stdio'}")
             server.run(transport=args.transport or "stdio")
 
