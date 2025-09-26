@@ -13,9 +13,10 @@
 name: Publish to MCP Registry
 
 on:
-  pull_request:
-  release:
-    types: [published]
+  workflow_run:
+    workflows: ["Upload Python Package"]
+    types:
+      - completed
   workflow_dispatch:  # Allow manual triggering
 
 permissions:
@@ -25,8 +26,26 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    # Only run if the PyPI workflow succeeded
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
     - uses: actions/checkout@v4
+
+    - name: Set VERSION from release tag
+      run: |
+        # Get the tag that corresponds to the commit that triggered the PyPI workflow
+        git fetch --tags
+        TAG=$(git describe --tags --exact-match ${{ github.event.workflow_run.head_sha }})
+        # Extract version from tag (remove 'v' prefix if present)
+        VERSION=${TAG#v}
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+        echo "Publishing version: $VERSION (from tag: $TAG)"
+
+    - name: Update server.json with version
+      run: |
+        # Replace VERSION placeholder in server.json
+        sed -i 's/\${VERSION}/'"$VERSION"'/g' server.json
+        echo "Updated server.json with version $VERSION"
 
     - name: Install mcp-publisher
       run: |
