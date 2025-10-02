@@ -1,0 +1,24 @@
+server:
+  port: 9000
+
+tools:
+  snowflake:
+    enabled: true
+
+    # Let agent-style chats see and use the tools
+    agent_services: true
+
+    # Optional discovery helpers (recommended)
+    search_services: true         # semantic search over objects/columns (read-only)
+    analyst_services: true        # NL-to-SQL helper (read-only SQL generation)
+
+    other_services:
+      object_manager: true        # list databases/schemas/tables/columns
+      query_manager: true         # execute SQL (obeys permissions below)
+      semantic_manager: false     # keep off unless you actually want them
+    # Keep it safe/read-only
+    sql_statement_permissions:
+      - "select"
+      - "show"
+      - "describe"
+

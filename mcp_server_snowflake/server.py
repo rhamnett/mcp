@@ -501,6 +501,8 @@ def create_lifespan(args):
 
         Uses pre-parsed command line arguments to create and configure the Snowflake service.
         """
+        logger.info("DEBUG: Lifespan function called!")
+        
         connection_params = {
             key: getattr(args, key)
             for key in get_login_params().keys()
@@ -514,12 +516,14 @@ def create_lifespan(args):
 
         snowflake_service = None
         try:
+            logger.info("DEBUG: Creating SnowflakeService...")
             snowflake_service = SnowflakeService(
                 service_config_file=service_config_file,
                 transport=args.transport,
                 connection_params=connection_params,
                 endpoint=endpoint or args.endpoint,
             )
+            logger.info("DEBUG: SnowflakeService created successfully")
 
             # Initialize tools and resources now that we have the service
             logger.info("Initializing tools and resources...")
@@ -530,6 +534,8 @@ def create_lifespan(args):
             yield snowflake_service
         except Exception as e:
             logger.error(f"Error creating Snowflake service: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             raise
 
         finally:
@@ -554,29 +560,51 @@ def initialize_resources(snowflake_service: SnowflakeService, server: FastMCP):
 
 
 def initialize_tools(snowflake_service: SnowflakeService, server: FastMCP):
+    logger.info(f"DEBUG: Starting tool initialization...")
+    logger.info(f"DEBUG: snowflake_service.object_manager = {snowflake_service.object_manager}")
+    logger.info(f"DEBUG: snowflake_service.query_manager = {snowflake_service.query_manager}")
+    logger.info(f"DEBUG: snowflake_service.semantic_manager = {snowflake_service.semantic_manager}")
+    logger.info(f"DEBUG: snowflake_service.agent_services = {snowflake_service.agent_services}")
+    logger.info(f"DEBUG: snowflake_service.search_services = {snowflake_service.search_services}")
+    logger.info(f"DEBUG: snowflake_service.analyst_services = {snowflake_service.analyst_services}")
+    
     if snowflake_service is not None:
         # Add tools for object manager
         if snowflake_service.object_manager:
+            logger.info("DEBUG: Initializing object manager tools...")
             initialize_object_manager_tools(server, snowflake_service)
+            logger.info("DEBUG: Object manager tools initialized")
 
         # Add tools for query manager
         if snowflake_service.query_manager:
+            logger.info("DEBUG: Initializing query manager tools...")
             initialize_query_manager_tool(server, snowflake_service)
+            logger.info("DEBUG: Query manager tools initialized")
 
         # Add tools for semantic manager
         if snowflake_service.semantic_manager:
+            logger.info("DEBUG: Initializing semantic manager tools...")
             initialize_semantic_manager_tools(server, snowflake_service)
+            logger.info("DEBUG: Semantic manager tools initialized")
 
         # Add tool for agent service
         if snowflake_service.agent_services:
+            logger.info("DEBUG: Initializing agent service tools...")
             initialize_cortex_agent_tool(server, snowflake_service)
+            logger.info("DEBUG: Agent service tools initialized")
 
         # Add tool for search service
         if snowflake_service.search_services:
+            logger.info("DEBUG: Initializing search service tools...")
             initialize_cortex_search_tool(server, snowflake_service)
+            logger.info("DEBUG: Search service tools initialized")
 
         if snowflake_service.analyst_services:
+            logger.info("DEBUG: Initializing analyst service tools...")
             initialize_cortex_analyst_tool(server, snowflake_service)
+            logger.info("DEBUG: Analyst service tools initialized")
+    
+    logger.info("DEBUG: Tool initialization completed")
 
 
 def main():
@@ -584,28 +612,60 @@ def main():
 
     warn_deprecated_params()
 
-    # Create server with lifespan that has access to args
-    server = FastMCP("Snowflake MCP Server", lifespan=create_lifespan(args))
-
     try:
         logger.info("Starting Snowflake MCP Server...")
+        logger.info(f"DEBUG: Received transport argument: {args.transport}")
 
         if args.transport and args.transport in [
             "http",
             "sse",
             "streamable-http",
         ]:
+            # For HTTP/SSE transports, initialize tools directly
+            logger.info("DEBUG: Initializing for HTTP/SSE transport...")
+            connection_params = {
+                key: getattr(args, key)
+                for key in get_login_params().keys()
+                if getattr(args, key) is not None
+            }
+            service_config_file = get_var(
+                "service_config_file", "SERVICE_CONFIG_FILE", args
+            )
+            endpoint = os.environ.get("SNOWFLAKE_MCP_ENDPOINT", args.endpoint)
+            
+            logger.info("DEBUG: Creating SnowflakeService for HTTP/SSE...")
+            snowflake_service = SnowflakeService(
+                service_config_file=service_config_file,
+                transport=args.transport,
+                connection_params=connection_params,
+                endpoint=endpoint or args.endpoint,
+            )
+            logger.info("DEBUG: SnowflakeService created successfully")
+            
+            # Create server without lifespan
+            server = FastMCP("Snowflake MCP Server")
+            
+            # Initialize tools directly
+            logger.info("Initializing tools and resources...")
+            initialize_tools(snowflake_service, server)
+            initialize_middleware(server, snowflake_service)
+            initialize_resources(snowflake_service, server)
+            
             endpoint = os.environ.get("SNOWFLAKE_MCP_ENDPOINT", args.endpoint)
             logger.info(f"Starting server with transport: {args.transport}")
             server.run(
                 transport=args.transport, host="0.0.0.0", port=9000, path=endpoint
             )
         else:
+            # For STDIO transport, use lifespan function
+            server = FastMCP("Snowflake MCP Server", lifespan=create_lifespan(args))
             logger.info(f"Starting server with transport: {args.transport or 'stdio'}")
             server.run(transport=args.transport or "stdio")
 
     except Exception as e:
         logger.error(f"Error starting MCP server: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         raise
 
 

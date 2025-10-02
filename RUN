@@ -1,0 +1,12 @@
+export SNOWFLAKE_ACCOUNT=a1214979236371-zenith
+export SNOWFLAKE_USER=RICHARDHAMNETT
+export SNOWFLAKE_PRIVATE_KEY="$(cat /Users/rick/Desktop/rsa_key.der.b64)"
+export SNOWFLAKE_PRIVATE_KEY_FILE_PWD=''
+docker run -d --name mcp-server-snowflake -p 9000:9000 \
+  -e SNOWFLAKE_ACCOUNT \
+  -e SNOWFLAKE_USER \
+  -e SNOWFLAKE_PRIVATE_KEY \
+  -e SNOWFLAKE_PRIVATE_KEY_FILE_PWD \
+  -v $HOME/.mcp/tools_config.yaml:/app/services/tools_config.yaml:ro \
+  mcp-server-snowflake
+
